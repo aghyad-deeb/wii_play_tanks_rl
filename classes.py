@@ -217,6 +217,7 @@ class Tank:
 		self.y = y
 		self.ai = getattr(ai, "ai_" + type, lambda *_: None) if not no_ai else lambda *_: None
 		self.stop = stop
+		self.time = 0
 		
 		self.bullet_limit, self.bullet_bounce, self.mine_limit, self.rocket, self.speed = TANKPROPERTIES[type]
 		
@@ -227,6 +228,7 @@ class Tank:
 		self.ai_stuck = 0
 	
 	def tick(self, tick_time):
+		self.time = tick_time
 		if not self.dead:
 			try:
 				self.ai(self, tick_time)
@@ -273,27 +275,41 @@ class Tank:
 		return r % SHEETWIDTH, r // SHEETWIDTH
 
 	def move_x(self, x):
+		print(f"{self.speed=}")
+		print(f"{x=}")
+		if self.time % TANK_MOVE_EVERY_X_FRAME != 0: return
+		x = ceil(x) if x > 0 else floor(x)
+		print(f"{x=}")
 		if not self.dead and self.speed > 0 and not self.stop:
 			TC = TANKCOLLISION
 			TTC = TANKTANKCOLLISION
 
 			r = copysign(TC, x)
-			cx = self.x + r + x + 0.5
-			if main.map[int(cx)][int(self.y + 0.5 - TC)] == None and main.map[int(cx)][int(self.y + 0.5 + TC)] == None:
+			#cx = self.x + r + x + 0.5
+			cx = int(self.x + r + x + 0.5)
+			if cx >= len(main.map):
+				cx = len(main.map) - 1
+			if main.map[cx][int(self.y + 0.5 - TC)] == None and main.map[cx][int(self.y + 0.5 + TC)] == None:
+                # I think this is checking for colisions with walls or other 
+                # other tanks
 				for i, t in enumerate(main.tanks):
 					if i == main.tanks.index(self) or t.dead:
 						continue
 					if (t.x - TTC < self.x + r + x <= t.x + TTC and
 						(t.y - TTC < self.y - TC <= t.y + TTC or t.y - TTC < self.y + TC <= t.y + TTC)):
-						self.x = t.x - copysign(TTC + TC + 0.001, x)
+						#self.x = t.x - copysign(TTC + TC + 0.001, x)
+						self.x = t.x - copysign(TTC + TC, x)
 						break
 				else:
 					self.x += x
 					self.movement[0] = x
 			else:
-				self.x += copysign(int(cx) - self.x - r, x) - copysign(0.501, x)
+				self.x += copysign(cx - self.x - r, x) - copysign(1.00, x)
+				#self.x += copysign(cx - self.x - r, x) - copysign(0.501, x)
 
 	def move_y(self, y):
+		if self.time % TANK_MOVE_EVERY_X_FRAME != 0: return
+		y = ceil(y) if y > 0 else floor(y)
 		if not self.dead and self.speed > 0 and not self.stop:
 			TC = TANKCOLLISION
 			TTC = TANKTANKCOLLISION
@@ -307,13 +323,13 @@ class Tank:
 						continue
 					if (t.y - TTC < self.y + r + y <= t.y + TTC and
 						(t.x - TTC < self.x - TC <= t.x + TTC or t.x - TTC < self.x + TC <= t.x + TTC)):
-						self.y = t.y - copysign(TTC + TC + 0.001, y)
+						self.y = t.y - copysign(TTC + TC, y)
 						break
 				else:
 					self.y += y
 					self.movement[1] = y
 			else:
-				self.y += copysign(int(cy) - self.y - r, y) - copysign(0.501, y)
+				self.y += copysign(int(cy) - self.y - r, y) - copysign(1, y)
 	
 	def place_mine(self):
 		if self.mines_placed < self.mine_limit and not self.dead and not self.stop and (int(self.x+0.5), int(self.y+1.5)) not in [(m.x, m.y) for m in main.mines] :

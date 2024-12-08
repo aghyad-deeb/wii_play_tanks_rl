@@ -1,0 +1,4 @@
+from wii_tanks.wrappers.clip_reward import ClipReward
+from wii_tanks.wrappers.discrete_actions import DiscreteActions
+from wii_tanks.wrappers.reacher_weighted_reward import ReacherRewardWrapper
+from wii_tanks.wrappers.relative_position import RelativePosition
