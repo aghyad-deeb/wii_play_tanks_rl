@@ -11,6 +11,11 @@ COLORKEY = (255, 0, 255)
 
 # SOUNDMUTED = "mute" in sys.argv
 SOUNDMUTED = True
+COLORKEY = (255, 0, 255)
+
+TANK_MOVE_EVERY_X_FRAME = 10
+
+SOUNDMUTED = "mute" in sys.argv
 DEBUGMODE = "debug" in sys.argv
 
 PLAYER_LIVES = 15
