@@ -1,0 +1,2 @@
+##There are enemy types A - F
+# A is 
