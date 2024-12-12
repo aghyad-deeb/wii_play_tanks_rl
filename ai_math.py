@@ -173,7 +173,7 @@ def has_sight(t):
 
 
 def try_bullet(t, angle):
-	speed = 0.5
+	speed = 0.5 * PLAYBACK_SPEED
 	maxd = 50
 	d = maxd
 	b = t.bullet_bounce

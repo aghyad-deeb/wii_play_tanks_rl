@@ -68,8 +68,12 @@ def load_icon():
 	icon = image.load("assets/icon.png")
 	return icon
 
-def load_stage(stage, map, tanks):
-	with open("stages/" + stage + ".txt", "r") as s:
+def load_stage(stage, map, tanks, training=True):
+	if training:
+		f = "training_stages/" + stage + ".txt"
+	else:
+		f = "stages/" + stage + ".txt"
+	with open(f, "r") as s:
 		m = [i.replace("\n", "") + (" " * (FIELDWIDTH - len(i.replace("\n", "")))) for i in s.readlines()]
 		m += [" " * FIELDWIDTH] * (FIELDHEIGHT - len(m))
 		for y,i in enumerate(m):
