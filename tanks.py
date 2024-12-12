@@ -34,6 +34,7 @@ pixel_font.render_to(screen, (10, SCREENHEIGHT - 30), "Loading..." + (" (SOUND M
 display.flip()
 
 text_cache = {}
+mission_completed = False
 
 aim_thresholds = [0.125, 0.25, 0.375, 0.5]
 num_aim_thresholds = len(aim_thresholds)
@@ -139,17 +140,6 @@ def draw_text(font, text, x, y, centered=False, border=2, color=(255, 255, 255),
 
 
 
-main.assets = {}
-main.assets.update(load_tiles())
-main.assets.update(load_effects())
-main.assets.update(load_tanks())
-main.assets.update(load_extra())
-
-main.lives = PLAYER_LIVES
-
-main.redraw_bg = render_bg_layer
-main.redraw_shadow = render_shadow_layer
-main.draw_to_bg = draw_to_bg
 main.tanks = []
 
 import math
@@ -207,7 +197,6 @@ class WiiTanks(gym.Env):
         	[movement_actions, shoot_action]
         )
 
-        self._initial_num_targets = len(self._get_tanks_locations()) - 1
 
         # TODO: something similar to their action to distribution thing
 
@@ -277,13 +266,8 @@ class WiiTanks(gym.Env):
 		]
 
     
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None, options=None, level=1):
         super().reset()
-
-		# Maybe just call his functions here
-		# TODO: import function
-		# TODO: pass appropriate stage
-		#main.goto_stage()
         main.assets = {}
         main.assets.update(load_tiles())
         main.assets.update(load_effects())
@@ -300,12 +284,13 @@ class WiiTanks(gym.Env):
         transition_surf.fill((0, 0, 0))
 
         transition_counter = -1
-        goto_stage()
+        goto_stage(stage=f"{level}")
 
         self._tanks_locations = self._get_tanks_locations()
         self._bullets_locations = self._get_bullets_locations()
         self._walls_locations = self._get_walls_locations()
         self._dwalls_locations = self._get_dwalls_locations()
+        self._initial_num_targets = len(self._get_tanks_locations()) - 1
 
 
         ## TODO: import main
@@ -374,7 +359,7 @@ class WiiTanks(gym.Env):
                 main.tanks[MAIN_TANK].move_y(-1 * speed)
             if move_action == MOVE_BOTTOM_LEFT:
                 main.tanks[MAIN_TANK].move_x(-1 * speed)
-                main.tanks[MAIN_TANK].move_y(-1 * speed)
+                main.tanks[MAIN_TANK].move_y(speed)
 
     def step(self, action):
         # TODO: make the action take effect by editing the agent's location
@@ -412,7 +397,7 @@ class WiiTanks(gym.Env):
         observation = self._get_obs()
         print(f"{observation=}")
         reward = 0
-        terminated = main.tanks[MAIN_TANK].dead
+        terminated = main.tanks[MAIN_TANK].dead and mission_completed
         #info = self._get_info()
         info = None
 
@@ -505,10 +490,11 @@ while not stop:
 		transition_counter += 1
 		if transition_counter == TRANSITIONLENGTH:
 			if win_counter == 0:
-				goto_stage(STAGES[STAGES.index(main.stage)+1])
+				mission_completed = True
+				#goto_stage(STAGES[STAGES.index(main.stage)+1])
 			else:
 				main.lives -= 1
-				goto_stage(main.stage)
+				#goto_stage(main.stage)
 	if transition_counter >= TRANSITIONLENGTH*2:
 		transition_counter = -1
 	if over_counter >= 0 and transition_counter / TRANSITIONLENGTH >= 0.5:
