@@ -18,6 +18,7 @@ from math import *
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+seed = 42
 init()
 screen = display.set_mode((SCREENWIDTH, SCREENHEIGHT))
 display.set_caption("Python Play Tanks!")
@@ -51,7 +52,7 @@ def aim_to_action(aim):
 	counterclockwise 
 	"""
 	thresh = aim_threshold_round(abs(aim))
-	print(f"{thresh=}")
+	#print(f"{thresh=}")
 	if aim > 0:
 		shoot_action = thresh
 	else:
@@ -64,17 +65,13 @@ def keys_to_movement(d, s, a, w):
 		 right: 7; top: 5; left: 1; bottom: 3; 
 		 top-right: 8; top-left: 2; bottom-left: 0; bottom-right: 6;
 	"""
-	print(f"{d=}, {s=}, {a=}, {w=}")
+	#print(f"{d=}, {s=}, {a=}, {w=}")
 	# Start with no movement
 	action = 4
-	if w:
-		action += 1
-	if s:
-		action -= 1
-	if d:
-		action += 3
-	if a:
-		action -= 3
+	if w: action += 1
+	if s: action -= 1
+	if d: action += 3
+	if a: action -= 3
 	return action
 
 def goto_stage(stage="1"):
@@ -98,7 +95,7 @@ def goto_stage(stage="1"):
 	
 	text_cache.clear()
 	
-	#sound.play_mission_intro()
+	##sound.play_mission_intro()
 
 def render_bg_layer():
 	global bg_layer
@@ -176,34 +173,41 @@ MOVE_BOTTOM_LEFT = 0
 class WiiTanks(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 4}
     
-    def __init__(self, render_mode=None, size=10, level=1):
-        self.size = size
+    def __init__(self, render_mode=None, width=FIELDWIDTH, height=FIELDHEIGHT, level=1):
+        self.width = width
+        self.height = height
         self.level = level
         # TODO: map better
         # Assuming number of targets == number of levels
         self.num_tanks = level + 1
 
         self.observation_space = spaces.Dict(
-            {
-                 f"tank[i]": spaces.Box(0, size - 1, shape=(2,), dtype=int)
-                 for i in range(self.num_tanks)
-            }
-            #{
-            #    "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-            #    # Need to make num of targets dependent on the level
-            #    "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-            #    # Need to add observations for obstacles
-            #}
+        	{
+        		"agent": spaces.Box(low=np.array([0, 0]), high=np.array([width, height]), shape=(2,), dtype=int),
+        		"targets": spaces.Sequence(spaces.Box(low=np.array([0, 0]), high=np.array([width, height]), shape=(2,), dtype=int), seed=seed),
+        		"bullets": spaces.Sequence(spaces.Box(low=np.array([0, 0]), high=np.array([width, height]), shape=(2,), dtype=float), seed=seed),
+        		"walls": spaces.Sequence(spaces.Box(low=np.array([0, 0]), high=np.array([width, height]), shape=(2,), dtype=int), seed=seed),
+        		"dwalls": spaces.Sequence(spaces.Box(low=np.array([0, 0]), high=np.array([width, height]), shape=(2,), dtype=int), seed=seed),
+        	},
+        	seed=seed,
+        	#{
+        	#    "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+        	#    # Need to make num of targets dependent on the level
+        	#    "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+        	#    # Need to add observations for obstacles
+        	#}
         )
-        
+		
         # TODO: add 
         # One for each of 8 directions + one for not moving
         movement_actions = 9
         # One for each of 8 directions + one for not shooting
         shoot_action = 9
         self.action_space =  spaces.MultiDiscrete(
-            [movement_actions, shoot_action]
+        	[movement_actions, shoot_action]
         )
+
+        self._initial_num_targets = len(self._get_tanks_locations()) - 1
 
         # TODO: something similar to their action to distribution thing
 
@@ -212,9 +216,12 @@ class WiiTanks(gym.Env):
 
     def _get_obs(self):
         return {
-			 f"tank[i]": self._tanks_locations[i]
-			 for i in range(len(self._tanks_locations))
-		}
+				"agent": self._tanks_locations[0],
+                "targets": self._tanks_locations[1:],
+                "bullets": self._bullets_locations,
+				"walls": self._walls_locations,
+				"dwalls": self._dwalls_locations,
+        }
 
     # For calculations we want to access often
 #    def _get_info(self):
@@ -227,6 +234,49 @@ class WiiTanks(gym.Env):
     def _get_tanks_locations(self):
         return [np.array([tank.x, tank.y]) for tank in main.tanks]
 
+    def _get_bullets_locations(self):
+        return [np.array([bullet.x, bullet.y]) for bullet in main.bullets]
+
+    def _get_walls_locations(self):
+        walls_locations = []
+        for j, col in enumerate(main.map):
+            for i, tile in enumerate(col):
+                if tile is not None and "wall0" in tile:
+                    walls_locations.append((i, j))
+        return walls_locations
+
+    def _get_dwalls_locations(self):
+        dwalls_locations = []
+        for j, col in enumerate(main.map):
+            for i, tile in enumerate(col):
+                if tile is not None and "dwall1" in tile:
+                     dwalls_locations.append((i, j))
+        return dwalls_locations
+	
+    def _get_reward(self):
+        # TODO: Implement the following rewards
+        #	- Health Points
+        #   - Damage to enemy
+        #	- Distance from enemy bullets
+        #		- Maybe simplify to distance to closes bullet
+
+		# Health Points
+		# 	This actually simplifies to just knowing if the tank is dead 
+		# 	which is main.tanks[0].dead
+
+		# Damage to Enemy
+		# 	Similarly to Health points, enemies are either dead or alive so 
+		# 	this simplifies to if the number of enemies decreased
+		# 	I'll introduce a variable for the initial number of enemies
+
+		# Distance from closes bullet
+        agent_x, agent_y = (self._tanks_locations.x, self._tanks_locations.y)
+        distances = [
+			(agent_x - bullet_x, agent_y - bullet_y)
+			for bullet_x, bullet_y in self._bullets_locations
+		]
+
+    
     def reset(self, seed=None, options=None):
         super().reset()
 
@@ -253,6 +303,10 @@ class WiiTanks(gym.Env):
         goto_stage()
 
         self._tanks_locations = self._get_tanks_locations()
+        self._bullets_locations = self._get_bullets_locations()
+        self._walls_locations = self._get_walls_locations()
+        self._dwalls_locations = self._get_dwalls_locations()
+
 
         ## TODO: import main
         #agent_tank = main.tanks[0]
@@ -279,7 +333,6 @@ class WiiTanks(gym.Env):
 #            # TODO: import the function
 #            render_bg_layer()
 #            render_shadow_layer()
-#
 #        # TODO: delete if not necessary
 #        text_cache.clear()
 
@@ -298,28 +351,27 @@ class WiiTanks(gym.Env):
 
     def _action_to_movement(self, move_action):
         if move_action % 2 == 1:
-            print(f"insideeee")
             if move_action > 4:
-                speed = main.tanks[0].speed
-            if move_action < 4:
                 speed = -1 * main.tanks[0].speed
+            if move_action < 4:
+                speed = main.tanks[0].speed
 
-            if move_action == MOVE_TOP and move_action == MOVE_BOTTOM:
-                main.tanks[MAIN_TANK].move_x(speed)
-            if move_action == MOVE_RIGHT and move_action == MOVE_LEFT:
+            if move_action == MOVE_TOP or move_action == MOVE_BOTTOM:
                 main.tanks[MAIN_TANK].move_y(speed)
+            if move_action == MOVE_RIGHT or move_action == MOVE_LEFT:
+                main.tanks[MAIN_TANK].move_x(-1 * speed)
 
         elif move_action % 2 == 0:
-            speed = main.tanks[0].speed / math.sqrt(2)
+            speed = main.tanks[MAIN_TANK].speed / math.sqrt(2)
             if move_action == MOVE_TOP_RIGHT:
                 main.tanks[MAIN_TANK].move_x(speed)
-                main.tanks[MAIN_TANK].move_y(speed)
+                main.tanks[MAIN_TANK].move_y(-1 * speed)
             if move_action == MOVE_BOTTOM_RIGHT:
                 main.tanks[MAIN_TANK].move_x(speed)
-                main.tanks[MAIN_TANK].move_y(-1 * speed)
+                main.tanks[MAIN_TANK].move_y(speed)
             if move_action == MOVE_TOP_LEFT:
                 main.tanks[MAIN_TANK].move_x(-1 * speed)
-                main.tanks[MAIN_TANK].move_y(speed)
+                main.tanks[MAIN_TANK].move_y(-1 * speed)
             if move_action == MOVE_BOTTOM_LEFT:
                 main.tanks[MAIN_TANK].move_x(-1 * speed)
                 main.tanks[MAIN_TANK].move_y(-1 * speed)
@@ -334,7 +386,7 @@ class WiiTanks(gym.Env):
 
         # Handle movement
         if move_action != 4:
-            print(f"inside move action if")
+            #print(f"inside move action if")
             self._action_to_movement(move_action)
 
         # Handle shooting
@@ -350,10 +402,17 @@ class WiiTanks(gym.Env):
         # TODO: write a function to get the location of tanks and call it here
         # and other places
         # < 0: top; > 0: bottom; right: 0; left: +- 0.5; top: -0.25; bottim: 0.25
+        #for i, tank in enumerate(self._tanks_locations):
+        #        self._tanks_locations[i] = np.array([main.tanks[i].x, main.tanks[i].y])
+        self._tanks_locations = self._get_tanks_locations()
+        self._bullets_locations = self._get_bullets_locations()
+        self._walls_locations = self._get_walls_locations()
+        self._dwalls_locations = self._get_dwalls_locations()
 
         observation = self._get_obs()
+        print(f"{observation=}")
         reward = 0
-        terminated = False
+        terminated = main.tanks[MAIN_TANK].dead
         #info = self._get_info()
         info = None
 
@@ -400,15 +459,16 @@ while not stop:
 			aim = get_aim()
 			aim_to_action
 			shoot_action = aim_to_action(aim)
-			print(f"{aim=}, {shoot_action=}")
+			#print(f"{aim=}, {shoot_action=}")
 			# TODO: Add shooting
 			# Old code
 			#main.tanks[0].shoot()
 		if e.type == KEYDOWN:
 			if e.key == K_SPACE:
-				main.tanks[0].place_mine()
+				main.tanks[MAIN_TANK].place_mine()
 		if e.type in sound.end_event:
-			sound.end_event[e.type]()
+			pass
+			#sound.end_event[e.type]()
 	
 	screen.blit(bg_layer, (0, 0))
 	screen.blit(shadow_layer, (0, 0))
@@ -420,18 +480,18 @@ while not stop:
 			break
 	if win_counter <= -1 and lose_counter <= -1 and intro_counter <= -1 and over_counter <= -1:
 		round_counter += 1
-		if (main.tanks[0].dead and main.lives <= 0) or (win_test and STAGES.index(main.stage) == len(STAGES)-1):
+		if (main.tanks[MAIN_TANK].dead and main.lives <= 0) or (win_test and STAGES.index(main.stage) == len(STAGES)-1):
 			for t in main.tanks:
 				t.stop = True
-			sound.stop_mission_loop()
-			sound.play_results()
+			#sound.stop_mission_loop()
+			#sound.play_results()
 			over_counter = 0
-		elif main.tanks[0].dead:
-			sound.play_mission_lose()
+		elif main.tanks[MAIN_TANK].dead:
+			#sound.play_mission_lose()
 			lose_counter = LOSELENGTH
 		elif win_test:
-			main.tanks[0].stop = True
-			sound.play_mission_win()
+			main.tanks[MAIN_TANK].stop = True
+			##sound.play_mission_win()
 			win_counter = WINLENGTH
 	if lose_counter > 0:
 		lose_counter -= 1
@@ -459,15 +519,15 @@ while not stop:
 	elif intro_counter == 0:
 		intro_counter = -1
 		round_counter = 0
-		sound.build_mission_loop()
-		sound.play_mission_loop()
+		##sound.build_mission_loop()
+		##sound.play_mission_loop()
 		for t in main.tanks:
 			t.stop = False
 		text_cache.clear()
 	
 	new_aim = get_aim()
-	if new_aim != main.tanks[0].aim_target:
-		main.tanks[0].aim_target = new_aim
+	if new_aim != main.tanks[MAIN_TANK].aim_target:
+		main.tanks[MAIN_TANK].aim_target = new_aim
 	aim_to_action
 	
 	pressed = key.get_pressed()
@@ -476,7 +536,7 @@ while not stop:
 	move_action = keys_to_movement(
 		pressed[K_d], pressed[K_s], pressed[K_a], pressed[K_w]
 	)
-	print(f"{move_action=}")
+	#print(f"{move_action=}")
 
 	# Old code
 	#movex = 0

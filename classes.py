@@ -275,11 +275,8 @@ class Tank:
 		return r % SHEETWIDTH, r // SHEETWIDTH
 
 	def move_x(self, x):
-		print(f"{self.speed=}")
-		print(f"{x=}")
 		if self.time % TANK_MOVE_EVERY_X_FRAME != 0: return
 		x = ceil(x) if x > 0 else floor(x)
-		print(f"{x=}")
 		if not self.dead and self.speed > 0 and not self.stop:
 			TC = TANKCOLLISION
 			TTC = TANKTANKCOLLISION
