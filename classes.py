@@ -74,7 +74,7 @@ class Mine:
 class Bullet:
 	bounces = 0
 
-	def __init__(self, x, y, dir, bounce_limit, rocket=False, shooter_id=-1, callback=lambda *_: None):
+	def __init__(self, x, y, dir, bounce_limit, rocket=False, shooter_id=-1, callback=lambda *_: None, shot_by_agent=False):
 		self.x = x
 		self.y = y
 		self.dir = dir
@@ -83,6 +83,7 @@ class Bullet:
 		self.rocket = rocket
 		self.shooter_id = shooter_id
 		self.callback = callback
+		self.shot_by_agent = shot_by_agent
 
 	def get_dir_sheet(self):
 		r = round(self.dir * (SHEETWIDTH*SHEETHEIGHT)) % (SHEETWIDTH*SHEETHEIGHT)
@@ -338,20 +339,21 @@ class Tank:
 		# return
 		if not self.dead:
 			self.dead = True
-			main.effects.append(Effect("explosion1", self.x+0.5, self.y+1))
-			main.draw_to_bg(main.assets["scorch_tank"], self.x+0.5, self.y+1.5)
-			sound.remove_mission_loop(self.type)
-			sound.play_sfx("explosion")
-			if main.tanks.index(self) != 0:
-				sound.play_sfx("tank_hit")
+			if not main.TRAINING:
+				main.effects.append(Effect("explosion1", self.x+0.5, self.y+1))
+				main.draw_to_bg(main.assets["scorch_tank"], self.x+0.5, self.y+1.5)
+				sound.remove_mission_loop(self.type)
+				sound.play_sfx("explosion")
+				if main.tanks.index(self) != 0:
+					sound.play_sfx("tank_hit")
 
-	def shoot(self):
+	def shoot(self, shot_by_agent=False):
 		x = self.x + cos(self.aim*2*pi)
 		y = self.y + sin(self.aim*2*pi)
 		if not self.dead and not self.stop and self.bullets_shot < self.bullet_limit and main.map[int(x+0.5)][int(y+0.5)] == None:
 			if self.shot_cooldown <= 0:
 				self.shot_cooldown = TANKSHOTCOOLDOWN
-				main.bullets.append(Bullet(x, y, self.aim, self.bullet_bounce, self.rocket, main.tanks.index(self), self.bullet_callback))
+				main.bullets.append(Bullet(x, y, self.aim, self.bullet_bounce, self.rocket, main.tanks.index(self), self.bullet_callback, shot_by_agent=shot_by_agent))
 				self.bullets_shot += 1
 				sound.play_sfx("tank_shoot")
 			else:
