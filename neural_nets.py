@@ -13,7 +13,7 @@ def main():
     # cart_env = gym.make("CartPole-v1")
     # ppo(cart_env)
     tanks_env = WiiTanks()
-    ppo(tanks_env)
+    ppo(tanks_env, steps_per_trajectory=300, trajectories_per_epoch=1)
 
 
 
@@ -118,11 +118,12 @@ def rollout_trajectory_details(n, env, steps_per_trajectory, policy_net, value_n
             # Position bullets randomly within the bullets region.
             bullet_data = np.zeros(4 * TRACKED_BULLETS)
             available_bullet_positions = np.arange(TRACKED_BULLETS)
-            positions = np.random.choice(available_bullet_positions, min(len(obs['bullets']), TRACKED_BULLETS), False)
-            for i, bullet in enumerate(obs['bullets']):
-                if i >= TRACKED_BULLETS:
-                    break
-                bullet_data[4 * positions[i] : 4 * (positions[i] + 1)] = bullet
+            if len(obs['bullets']) != 0:
+                positions = np.random.choice(available_bullet_positions, min(len(obs['bullets'][0]), TRACKED_BULLETS), False)
+                for i, bullet in enumerate(obs['bullets'][0]):
+                    if i >= TRACKED_BULLETS:
+                        break
+                    bullet_data[4 * positions[i] : 4 * (positions[i] + 1)] = bullet
 
             # Position enemies randomly within the enemies region. 
             enemy_data = np.zeros(2 * TRACKED_ENEMIES)
