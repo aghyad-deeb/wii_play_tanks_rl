@@ -41,7 +41,7 @@ def save_map(map, num):
     chars = chars[:-1]
 
 
-    with open(f'training_stages\\{num}.txt', 'w') as file:
+    with open(f'training_stages/{num}.txt', 'w') as file:
         file.write(chars)
     
     return
@@ -67,7 +67,7 @@ def make_map(num:int, **kwargs)->np.ndarray:
     Makes training map number `num`. Passes *params to the corresponding map
     creation function.
 
-    Returns:
+    Returns:`
         map (np.ndarray): integer of ASCII values representing game state.
     '''
     match num:
