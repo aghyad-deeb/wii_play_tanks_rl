@@ -444,7 +444,7 @@ class WiiTanks(gym.Env):
 
         run_step()
         observation = self._get_obs()
-        print(f"{observation=} \n{len(observation["map"][0])=}")
+        print(f"{observation=} \n{len(observation['map'][0])=}")
         reward = self._get_reward()
         print(f"{self._get_num_alive_tanks()=}\n{self._num_targets_last_step=}")
         print(f"{reward=}")
