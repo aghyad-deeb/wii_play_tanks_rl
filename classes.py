@@ -175,7 +175,11 @@ class Bullet:
 	def destroy(self):
 		main.effects.append(Effect("particle1", self.x+0.5, self.y+1, False))
 		self.callback()
-		main.bullets.remove(self)
+		try:
+			main.bullets.remove(self)
+		except ValueError as e:
+			print(f'{e}: Bullet not deleted properly.')
+			pass
 		sound.play_sfx("bullet_crash")
 
 	def ricochet(self):

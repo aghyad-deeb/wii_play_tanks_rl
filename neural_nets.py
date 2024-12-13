@@ -13,7 +13,7 @@ def main():
     # cart_env = gym.make("CartPole-v1")
     # ppo(cart_env)
     tanks_env = WiiTanks()
-    ppo(tanks_env, steps_per_trajectory=300, trajectories_per_epoch=1)
+    ppo(tanks_env, steps_per_trajectory=150, trajectories_per_epoch=10)
 
 
 

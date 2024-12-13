@@ -244,7 +244,7 @@ class WiiTanks(gym.Env):
     def _get_num_alive_tanks(self):
         # num = [1 for tank in main.tanks if not tank.dead]
         # print(f"{num=}, {sum(num)-1=}")
-        return sum([1 for tank in main.tanks if not tank.dead]) - 1
+        return sum([1 for tank in main.tanks if not tank.dead and tank != main.tanks[0]])
 
     def _get_bullets_locations(self):
         return [
@@ -381,30 +381,30 @@ class WiiTanks(gym.Env):
 		# Health Points
 		# 	This actually simplifies to just knowing if the tank is dead 
 		# 	which is main.tanks[0].dead
-        if main.tanks[MAIN_TANK].dead:
-            reward -= death_weight
+        # if main.tanks[MAIN_TANK].dead:
+        #     reward -= death_weight
 
 		# Damage to Enemy
 		# 	Similarly to Health points, enemies are either dead or alive so 
 		# 	this simplifies to if the number of enemies decreased
 		# 	I'll introduce a variable for the initial number of enemies
         num_targets_curr = self._get_num_alive_tanks()
-        reward += (num_targets_curr - self._num_targets_last_step) * kill_weight
+        reward += (self._num_targets_last_step - num_targets_curr) * kill_weight
 		# Distance from closes bullet
-        agent_x, agent_y = self._agent_location
-        distances = [
-			# Adding 0.5 to have the distance measured from the middle of the 
-			# block
-			(agent_x - bullet_x + 0.5)**2 + (agent_y - bullet_y + 0.5)**2
-            for (bullet_x, bullet_y, _, _), shot_by_agent
-			in self._bullets_locations
-			if not shot_by_agent
-		]
-        reward -= (
-			(2 - min(distances)) * distance_weight
-			if len(distances) > 0  and min(distances) < 2
-			else 0
-		)
+        # agent_x, agent_y = self._agent_location
+        # distances = [
+		# 	# Adding 0.5 to have the distance measured from the middle of the 
+		# 	# block
+		# 	(agent_x - bullet_x + 0.5)**2 + (agent_y - bullet_y + 0.5)**2
+        #     for (bullet_x, bullet_y, _, _), shot_by_agent
+		# 	in self._bullets_locations
+		# 	if not shot_by_agent
+		# ]
+        # reward -= (
+		# 	(2 - min(distances)) * distance_weight
+		# 	if len(distances) > 0  and min(distances) < 2
+		# 	else 0
+		# )
         return reward
 
     def step(self, action):
@@ -450,7 +450,7 @@ class WiiTanks(gym.Env):
         # print(f"{reward=}")
         self._num_targets_last_step = self._get_num_alive_tanks()
 
-        terminated = main.tanks[MAIN_TANK].dead and mission_completed
+        terminated = main.tanks[MAIN_TANK].dead or self._num_targets_last_step == 0
         #info = self._get_info()
         info = None
 
