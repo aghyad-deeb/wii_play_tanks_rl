@@ -477,6 +477,8 @@ transition_counter = -1
 
 main.env = WiiTanks()
 def run():
+	global round_counter, intro_counter, win_counter, lose_counter, over_counter
+	global transition_counter
 	main.env.reset(level=1)
 
 	# print(f"\n\n\n\n\nrunning while loop\n\n\n\n\n")
