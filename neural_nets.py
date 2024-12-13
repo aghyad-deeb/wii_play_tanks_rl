@@ -5,11 +5,15 @@ import torch.optim as optim
 from torch.distributions import Categorical
 import gym
 from tqdm import tqdm
-
+from tanks import WiiTanks
+from settings import FIELDHEIGHT, FIELDWIDTH, TRACKED_BULLETS, TRACKED_ENEMIES
 
 
 def main():
-    ppo("CartPole-v1")
+    # cart_env = gym.make("CartPole-v1")
+    # ppo(cart_env)
+    tanks_env = WiiTanks()
+    ppo(tanks_env)
 
 
 
@@ -96,12 +100,49 @@ def rollout_trajectory_details(n, env, steps_per_trajectory, policy_net, value_n
     all_returns = []
 
     for _ in range(n):
-        obs = env.reset()
+        obs = env.reset()[0]
         done = False
         traj_reward = 0
         count = 0
         for _ in range(steps_per_trajectory):
-            obs_tensor = torch.tensor(obs, dtype=torch.float32)
+            # Process observation before running network
+            if isinstance(env, WiiTanks):
+                # Vectorize in order of bullets, enemies, player, walls
+
+                # Position bullets randomly within the bullets region.
+                bullet_data = np.zeros(4 * TRACKED_BULLETS)
+                available_bullet_positions = np.arange(TRACKED_BULLETS)
+                positions = np.random.choice(available_bullet_positions, min(len(obs['bullets']), TRACKED_BULLETS), False)
+                for i, bullet in enumerate(obs['bullets']):
+                    if i >= TRACKED_BULLETS:
+                        break
+                    bullet_data[4 * positions[i] : 4 * (positions[i] + 1)] = bullet
+
+                # Position enemies randomly within the enemies region. 
+                enemy_data = np.zeros(2 * TRACKED_ENEMIES)
+                available_enemy_positions = np.arange(TRACKED_ENEMIES)
+                positions = np.random.choice(available_enemy_positions, min(len(obs['targets']), TRACKED_ENEMIES), False)
+                for i, enemy in enumerate(obs['targets']):
+                    if i >= TRACKED_ENEMIES:
+                        break
+                    enemy_data[2 * positions[i] : 2 * (positions[i] + 1)] = enemy
+
+                # Player data is always 2-dimensional
+                player_data = obs['agent']
+                
+                # Wall data is always FIELDWIDTH x FIELDHEIGHT-dimensional
+                wall_data = obs['walls'].flatten()
+
+                print(wall_data)
+
+                obs_arr = np.concatenate((bullet_data, enemy_data, player_data, wall_data))
+                obs_tensor = torch.tensor(obs_arr, dtype=torch.float32)
+
+                print(obs_tensor.shape, FIELDWIDTH * FIELDHEIGHT + 4 * TRACKED_BULLETS + 6 * TRACKED_ENEMIES + 2)
+
+            else:
+                obs_tensor = torch.tensor(obs, dtype=torch.float32)
+
             probs = policy_net(obs_tensor)
             dist = Categorical(probs)
             action = dist.sample().item()
@@ -151,13 +192,17 @@ def rollout_trajectory_details(n, env, steps_per_trajectory, policy_net, value_n
 
 
 def ppo(
-    env_name, policy_lr=3e-4, value_lr=1e-3, epochs=100, steps_per_trajectory=2048, 
+    env, policy_lr=3e-4, value_lr=1e-3, epochs=100, steps_per_trajectory=2048, 
     gamma=0.99, lam=0.95, clip_ratio=0.2, target_kl=0.01, train_policy_iters=80, 
     train_value_iters=80, trajectories_per_epoch=10,
 ):
-    env = gym.make(env_name)
-    obs_dim = env.observation_space.shape[0]
-    act_dim = env.action_space.n
+    #environment state space dimension, hardcoded for WiiTanks because it's hard to find on the fly
+    if isinstance(env, WiiTanks):
+        obs_dim = FIELDWIDTH * FIELDHEIGHT + 4 * TRACKED_BULLETS + 6 * TRACKED_ENEMIES + 2
+        act_dim = 81 #(8 directions to shoot + 1 option to not shoot) x (8 directions to move + 1 option to not move)
+    else:
+        obs_dim = env.observation_space.shape[0]
+        act_dim = env.action_space.n
 
     policy_net = PolicyNetwork(obs_dim, act_dim)
     value_net = ValueNetwork(obs_dim)

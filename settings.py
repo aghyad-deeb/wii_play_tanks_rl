@@ -5,7 +5,8 @@ import sys
 
 PLAYBACK_SPEED = 1 # How fast to play the game; this effectively multiplies onto all velocities
 
-
+TRACKED_BULLETS = 10 # Number of bullets to track
+TRACKED_ENEMIES = 6  # Number of enemies to track
 
 COLORKEY = (255, 0, 255)
 
