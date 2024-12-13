@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 ASCII_SPACE = ord(' ')
 ASCII_ZERO = ord('0')
@@ -41,7 +42,7 @@ def save_map(map, num):
     chars = chars[:-1]
 
 
-    with open(f'training_stages\\{num}.txt', 'w') as file:
+    with open(os.path.join('training_stages', f'{num}.txt'), 'w') as file:
         file.write(chars)
     
     return

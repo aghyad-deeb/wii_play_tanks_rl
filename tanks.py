@@ -261,7 +261,7 @@ class WiiTanks(gym.Env):
 		# Distance from closes bullet
         agent_x, agent_y = (self._tanks_locations.x, self._tanks_locations.y)
         distances = [
-			(agent_x - bullet_x, agent_y - bullet_y)
+			((agent_x - bullet_x)**2, (agent_y - bullet_y)**2)
 			for bullet_x, bullet_y in self._bullets_locations
 		]
 

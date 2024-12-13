@@ -3,7 +3,7 @@ import sys
 
 
 
-PLAYBACK_SPEED = 2 # How fast to play the game; this effectively multiplies onto all velocities
+PLAYBACK_SPEED = 1 # How fast to play the game; this effectively multiplies onto all velocities
 
 
 
