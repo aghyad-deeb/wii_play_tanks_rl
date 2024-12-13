@@ -22,8 +22,8 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 seed = 42
 init()
 
-main.TRAINING = False
-#main.TRAINING = True
+# main.TRAINING = False
+main.TRAINING = True
 
 if not main.TRAINING:
 	screen = display.set_mode((SCREENWIDTH, SCREENHEIGHT))
@@ -441,10 +441,10 @@ class WiiTanks(gym.Env):
         #self._dwalls_locations = self._get_dwalls_locations()
 
         observation = self._get_obs()
-        print(f"{observation=}")
+        # print(f"{observation=}")
         reward = self._get_reward()
-        print(f"{self._get_num_alive_tanks()=}\n{self._num_targets_last_step=}")
-        print(f"{reward=}")
+        # print(f"{self._get_num_alive_tanks()=}\n{self._num_targets_last_step=}")
+        # print(f"{reward=}")
         self._num_targets_last_step = self._get_num_alive_tanks()
 
         terminated = main.tanks[MAIN_TANK].dead and mission_completed
@@ -469,9 +469,9 @@ class WiiTanks(gym.Env):
 
 
 
-
-transition_surf = Surface((SCREENWIDTH, SCREENHEIGHT))
-transition_surf.fill((0, 0, 0))
+if not main.TRAINING:
+	transition_surf = Surface((SCREENWIDTH, SCREENHEIGHT))
+	transition_surf.fill((0, 0, 0))
 
 transition_counter = -1
 

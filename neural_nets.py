@@ -44,7 +44,10 @@ class PolicyNetwork(nn.Module):
         x = torch.tanh(self.fc1(x))
         x = torch.tanh(self.fc2(x))
         x = self.fc3(x)
-        return torch.softmax(x, dim=-1)
+        if len(x.shape) == 1:
+            return torch.softmax(x[:9], dim=-1), torch.softmax(x[9:], dim=-1)
+        else:
+            return torch.softmax(x[:, :9], dim=-1), torch.softmax(x[:, 9:], dim=-1)
 
 class ValueNetwork(nn.Module):
     def __init__(self, input_dim, hidden_dim=64):
@@ -93,65 +96,69 @@ def rollout_trajectory_details(n, env, steps_per_trajectory, policy_net, value_n
     '''
     Gets summary statistics for `n` trajectories.
     '''
-    obs_buf, act_buf, logp_buf = [], [], []
+    obs_buf = []
+    act_move_buf = []
+    act_shoot_buf = []
+    logp_move_buf = []
+    logp_shoot_buf = []
     ep_rews = []
     traj_rewards = []
     all_advantages = []
     all_returns = []
 
-    for _ in range(n):
+    for _ in tqdm(range(n)):
         obs = env.reset()[0]
         done = False
         traj_reward = 0
         count = 0
         for _ in range(steps_per_trajectory):
             # Process observation before running network
-            if isinstance(env, WiiTanks):
-                # Vectorize in order of bullets, enemies, player, walls
+            # Vectorize in order of bullets, enemies, player, walls
 
-                # Position bullets randomly within the bullets region.
-                bullet_data = np.zeros(4 * TRACKED_BULLETS)
-                available_bullet_positions = np.arange(TRACKED_BULLETS)
-                positions = np.random.choice(available_bullet_positions, min(len(obs['bullets']), TRACKED_BULLETS), False)
-                for i, bullet in enumerate(obs['bullets']):
-                    if i >= TRACKED_BULLETS:
-                        break
-                    bullet_data[4 * positions[i] : 4 * (positions[i] + 1)] = bullet
+            # Position bullets randomly within the bullets region.
+            bullet_data = np.zeros(4 * TRACKED_BULLETS)
+            available_bullet_positions = np.arange(TRACKED_BULLETS)
+            positions = np.random.choice(available_bullet_positions, min(len(obs['bullets']), TRACKED_BULLETS), False)
+            for i, bullet in enumerate(obs['bullets']):
+                if i >= TRACKED_BULLETS:
+                    break
+                bullet_data[4 * positions[i] : 4 * (positions[i] + 1)] = bullet
 
-                # Position enemies randomly within the enemies region. 
-                enemy_data = np.zeros(2 * TRACKED_ENEMIES)
-                available_enemy_positions = np.arange(TRACKED_ENEMIES)
-                positions = np.random.choice(available_enemy_positions, min(len(obs['targets']), TRACKED_ENEMIES), False)
-                for i, enemy in enumerate(obs['targets']):
-                    if i >= TRACKED_ENEMIES:
-                        break
-                    enemy_data[2 * positions[i] : 2 * (positions[i] + 1)] = enemy
+            # Position enemies randomly within the enemies region. 
+            enemy_data = np.zeros(2 * TRACKED_ENEMIES)
+            available_enemy_positions = np.arange(TRACKED_ENEMIES)
+            positions = np.random.choice(available_enemy_positions, min(len(obs['targets']), TRACKED_ENEMIES), False)
+            for i, enemy in enumerate(obs['targets']):
+                if i >= TRACKED_ENEMIES:
+                    break
+                enemy_data[2 * positions[i] : 2 * (positions[i] + 1)] = enemy
 
-                # Player data is always 2-dimensional
-                player_data = obs['agent']
-                
-                # Wall data is always FIELDWIDTH x FIELDHEIGHT-dimensional
-                wall_data = obs['walls'].flatten()
+            # Player data is always 2-dimensional
+            player_data = obs['agent']
+            
+            # Wall data is always FIELDWIDTH x FIELDHEIGHT-dimensional
+            wall_data = np.array(obs['map']).flatten()
 
-                print(wall_data)
+            obs_arr = np.concatenate((bullet_data, enemy_data, player_data, wall_data))
+            obs_tensor = torch.tensor(obs_arr, dtype=torch.float32)
 
-                obs_arr = np.concatenate((bullet_data, enemy_data, player_data, wall_data))
-                obs_tensor = torch.tensor(obs_arr, dtype=torch.float32)
+            probs_shoot, probs_move = policy_net(obs_tensor)
+            
+            dist_shoot = Categorical(probs_shoot)
+            action_shoot = dist_shoot.sample().item()
+            logp_shoot = dist_shoot.log_prob(torch.tensor(action_shoot)).item()
+            
+            dist_move = Categorical(probs_move)
+            action_move = dist_move.sample().item()
+            logp_move = dist_move.log_prob(torch.tensor(action_move)).item()
 
-                print(obs_tensor.shape, FIELDWIDTH * FIELDHEIGHT + 4 * TRACKED_BULLETS + 6 * TRACKED_ENEMIES + 2)
+            next_obs, reward, done, _, _ = env.step((action_move, action_shoot))
 
-            else:
-                obs_tensor = torch.tensor(obs, dtype=torch.float32)
-
-            probs = policy_net(obs_tensor)
-            dist = Categorical(probs)
-            action = dist.sample().item()
-            logp = dist.log_prob(torch.tensor(action)).item()
-
-            next_obs, reward, done, _ = env.step(action)
-            obs_buf.append(obs)
-            act_buf.append(action)
-            logp_buf.append(logp)
+            obs_buf.append(obs_tensor)
+            act_move_buf.append(action_move)
+            act_shoot_buf.append(action_shoot)
+            logp_move_buf.append(logp_move)
+            logp_shoot_buf.append(logp_shoot)
             ep_rews.append(reward)
             traj_reward += reward
 
@@ -182,9 +189,11 @@ def rollout_trajectory_details(n, env, steps_per_trajectory, policy_net, value_n
     returns = np.concatenate(all_returns, 0)
 
     return (
-        torch.tensor(np.array(obs_buf), dtype=torch.float32), 
-        torch.tensor(np.array(act_buf), dtype=torch.int32), 
-        torch.tensor(np.array(logp_buf), dtype=torch.float32), 
+        torch.stack(obs_buf, dim=0), 
+        torch.tensor(np.array(act_move_buf), dtype=torch.int32), 
+        torch.tensor(np.array(act_shoot_buf), dtype=torch.int32), 
+        torch.tensor(np.array(logp_move_buf), dtype=torch.float32), 
+        torch.tensor(np.array(logp_shoot_buf), dtype=torch.float32), 
         advantages, 
         torch.tensor(np.array(returns), dtype=torch.float32),
         traj_rewards
@@ -196,13 +205,12 @@ def ppo(
     gamma=0.99, lam=0.95, clip_ratio=0.2, target_kl=0.01, train_policy_iters=80, 
     train_value_iters=80, trajectories_per_epoch=10,
 ):
+    if not isinstance(env, WiiTanks):
+        raise ValueError('Invalid environment. Only WiiTanks is supported.')
+    
     #environment state space dimension, hardcoded for WiiTanks because it's hard to find on the fly
-    if isinstance(env, WiiTanks):
-        obs_dim = FIELDWIDTH * FIELDHEIGHT + 4 * TRACKED_BULLETS + 6 * TRACKED_ENEMIES + 2
-        act_dim = 81 #(8 directions to shoot + 1 option to not shoot) x (8 directions to move + 1 option to not move)
-    else:
-        obs_dim = env.observation_space.shape[0]
-        act_dim = env.action_space.n
+    obs_dim = FIELDWIDTH * FIELDHEIGHT + 4 * TRACKED_BULLETS + 2 * TRACKED_ENEMIES + 2
+    act_dim = 18 #(8 directions to shoot + 1 option to not shoot) + (8 directions to move + 1 option to not move)
 
     policy_net = PolicyNetwork(obs_dim, act_dim)
     value_net = ValueNetwork(obs_dim)
@@ -211,7 +219,7 @@ def ppo(
     value_optimizer = optim.Adam(value_net.parameters(), lr=value_lr)
 
     for epoch in range(epochs):
-        obs_tensor, act_tensor, logp_old, advantages, returns, rewards = rollout_trajectory_details(
+        obs_tensor, act_move_tensor, act_shoot_tensor, logp_old_move_tensor, logp_old_shoot_tensor, advantages, returns, rewards = rollout_trajectory_details(
             trajectories_per_epoch, env, steps_per_trajectory, policy_net, value_net, gamma, lam
         )
 
@@ -225,15 +233,19 @@ def ppo(
         for _ in range(train_policy_iters):
             policy_optimizer.zero_grad()
 
-            probs = policy_net(obs_tensor)
-            dist = Categorical(probs)
-            logp = dist.log_prob(act_tensor)
+            probs_shoot, probs_move = policy_net(obs_tensor)
 
-            ratio = torch.exp(logp - logp_old)
+            dist_shoot = Categorical(probs_shoot)
+            logp_shoot = dist_shoot.log_prob(act_shoot_tensor)
+            
+            dist_move = Categorical(probs_move)
+            logp_move = dist_move.log_prob(act_move_tensor)
+
+            ratio = torch.exp(logp_move + logp_shoot - logp_old_move_tensor - logp_old_shoot_tensor)
             clip_adv = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * advantages
             loss_policy = -(torch.min(ratio * advantages, clip_adv)).mean()
 
-            kl = (logp_old - logp).mean().item()
+            kl = (logp_old_move_tensor + logp_old_shoot_tensor - logp_move - logp_shoot).mean().item()
             if kl > target_kl:
                 break
 
