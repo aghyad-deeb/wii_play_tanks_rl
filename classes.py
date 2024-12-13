@@ -276,6 +276,7 @@ class Tank:
 		return r % SHEETWIDTH, r // SHEETWIDTH
 
 	def move_x(self, x):
+		print(f"{self.time=}")
 		if self.time % TANK_MOVE_EVERY_X_FRAME != 0: return
 		x = ceil(x) if x > 0 else floor(x)
 		if not self.dead and self.speed > 0 and not self.stop:
@@ -306,6 +307,7 @@ class Tank:
 				#self.x += copysign(cx - self.x - r, x) - copysign(0.501, x)
 
 	def move_y(self, y):
+		print(f"{self.time=}")
 		if self.time % TANK_MOVE_EVERY_X_FRAME != 0: return
 		y = ceil(y) if y > 0 else floor(y)
 		if not self.dead and self.speed > 0 and not self.stop:
