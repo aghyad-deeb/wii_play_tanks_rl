@@ -173,10 +173,13 @@ class Bullet:
 					self.ricochet()
 
 	def destroy(self):
-		main.effects.append(Effect("particle1", self.x+0.5, self.y+1, False))
-		self.callback()
-		main.bullets.remove(self)
-		sound.play_sfx("bullet_crash")
+		try:
+			main.effects.append(Effect("particle1", self.x+0.5, self.y+1, False))
+			self.callback()
+			main.bullets.remove(self)
+			sound.play_sfx("bullet_crash")
+		except:
+			pass
 
 	def ricochet(self):
 		self.bounces += 1
