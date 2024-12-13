@@ -13,12 +13,12 @@ def main():
     # cart_env = gym.make("CartPole-v1")
     # ppo(cart_env)
     tanks_env = WiiTanks()
-    ppo(tanks_env, steps_per_trajectory=150, trajectories_per_epoch=10)
+    ppo(tanks_env, steps_per_trajectory=1000, trajectories_per_epoch=50)
 
 
 
 class PolicyNetwork(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dim=64):
+    def __init__(self, input_dim, output_dim, hidden_dim=1000):
         '''
         Neural network for learning a policy. Forward on this module takes in observation states and produces probability
         distributions over the action space.
@@ -50,7 +50,7 @@ class PolicyNetwork(nn.Module):
             return torch.softmax(x[:, :9], dim=-1), torch.softmax(x[:, 9:], dim=-1)
 
 class ValueNetwork(nn.Module):
-    def __init__(self, input_dim, hidden_dim=64):
+    def __init__(self, input_dim, hidden_dim=1000):
         '''
         Neural network for learning a value function. Forward on this module takes in observation states and produces
         an estimate for the value function at each state.

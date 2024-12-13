@@ -212,6 +212,8 @@ class WiiTanks(gym.Env):
         	[movement_actions, shoot_action]
         )
 
+        self.prev_distances = None
+
 
         # TODO: something similar to their action to distribution thing
 
@@ -297,6 +299,7 @@ class WiiTanks(gym.Env):
         self._walls_locations = self._get_walls_locations()
         #self._dwalls_locations = self._get_dwalls_locations()
         self._num_targets_last_step = self._get_num_alive_tanks()
+        self.prev_distances = None
 
 
         ## TODO: import main
@@ -381,8 +384,8 @@ class WiiTanks(gym.Env):
 		# Health Points
 		# 	This actually simplifies to just knowing if the tank is dead 
 		# 	which is main.tanks[0].dead
-        # if main.tanks[MAIN_TANK].dead:
-        #     reward -= death_weight
+        if main.tanks[MAIN_TANK].dead:
+            reward -= death_weight
 
 		# Damage to Enemy
 		# 	Similarly to Health points, enemies are either dead or alive so 
@@ -391,20 +394,22 @@ class WiiTanks(gym.Env):
         num_targets_curr = self._get_num_alive_tanks()
         reward += (self._num_targets_last_step - num_targets_curr) * kill_weight
 		# Distance from closes bullet
-        # agent_x, agent_y = self._agent_location
-        # distances = [
-		# 	# Adding 0.5 to have the distance measured from the middle of the 
-		# 	# block
-		# 	(agent_x - bullet_x + 0.5)**2 + (agent_y - bullet_y + 0.5)**2
-        #     for (bullet_x, bullet_y, _, _), shot_by_agent
-		# 	in self._bullets_locations
-		# 	if not shot_by_agent
-		# ]
-        # reward -= (
-		# 	(2 - min(distances)) * distance_weight
-		# 	if len(distances) > 0  and min(distances) < 2
-		# 	else 0
-		# )
+        agent_x, agent_y = self._agent_location
+        distances = [
+			# Adding 0.5 to have the distance measured from the middle of the 
+			# block
+			(agent_x - bullet_x + 0.5)**2 + (agent_y - bullet_y + 0.5)**2
+            for (bullet_x, bullet_y, _, _), shot_by_agent
+			in self._bullets_locations
+			if not shot_by_agent
+		]
+        if self.prev_distances:
+            reward -= (
+			    (2 - min(distances)) * distance_weight
+			    if len(distances) > 0 and min(distances) < 2 and min(distances) < min(self.prev_distances)
+			    else 0
+		    )
+        self.prev_distances = distances
         return reward
 
     def step(self, action):
@@ -501,8 +506,8 @@ def run_step():
 		if e.type == KEYDOWN:
 			if e.key == K_SPACE:
 				main.tanks[MAIN_TANK].place_mine()
-		if e.type in sound.end_event:
-			pass
+		# if e.type in sound.end_event:
+		# 	pass
 			#sound.end_event[e.type]()
 	
 	if not main.TRAINING:
