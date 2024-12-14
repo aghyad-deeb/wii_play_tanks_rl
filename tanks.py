@@ -370,7 +370,7 @@ class WiiTanks(gym.Env):
                 main.tanks[MAIN_TANK].move_x(-1 * speed)
                 main.tanks[MAIN_TANK].move_y(speed)
 
-    def _get_reward(self):
+    def _get_reward(self, move_action, shoot_action):
         # TODO: Implement the following rewards
         #	- Health Points
         #   - Damage to enemy
@@ -380,36 +380,76 @@ class WiiTanks(gym.Env):
         reward = 0
         death_weight = 1
         kill_weight = 1
+        aim_correct_weight = 0.1
         distance_weight = 0.1
+        survive_weight = 0.05
+
 		# Health Points
 		# 	This actually simplifies to just knowing if the tank is dead 
 		# 	which is main.tanks[0].dead
         if main.tanks[MAIN_TANK].dead:
             reward -= death_weight
+        else:
+            reward += survive_weight
+
+        shot_d_all = []
+        shot_d_player = []
+        agent_x, agent_y = self._agent_location
+        min_d = 100
+        min_d_idx = 0
+        idx = 0
+        min_d_player = 100
+        min_d_player_idx = 0
+        player_idx = 0
+        for (bullet_x, bullet_y, dir, _), shot_by_agent in self._bullets_locations:
+            dist = (agent_x - bullet_x + 0.5)**2 + (agent_y - bullet_y + 0.5)**2
+            shot_d_all.append([bullet_x, bullet_y, dir, dist])
+            if dist < min_d:
+                min_d = dist
+                min_d_idx = idx
+            if shot_by_agent:
+                shot_d_player.append([bullet_x, bullet_y, dir, dist])
+                if dist < min_d_player:
+                    min_d_player = dist
+                    min_d_player_idx = player_idx
+                player_idx += 1
+            idx += 1
+
+        if shoot_action != 0 and len(shot_d_player) > 0:
+            recent_bullet = shot_d_player[min_d_player_idx]
+            enemy = main.tanks[1]
+            if not enemy.dead:
+                angle = (recent_bullet[3] * 2 * np.pi) - np.arctan2(agent_y - enemy.y, agent_x - enemy.x)
+                reward += np.cos(angle) * aim_correct_weight
+
+				
 
 		# Damage to Enemy
 		# 	Similarly to Health points, enemies are either dead or alive so 
 		# 	this simplifies to if the number of enemies decreased
 		# 	I'll introduce a variable for the initial number of enemies
-        num_targets_curr = self._get_num_alive_tanks()
-        reward += (self._num_targets_last_step - num_targets_curr) * kill_weight
+        # num_targets_curr = self._get_num_alive_tanks()
+        # reward += (self._num_targets_last_step - num_targets_curr) * kill_weight
 		# Distance from closes bullet
-        agent_x, agent_y = self._agent_location
-        distances = [
-			# Adding 0.5 to have the distance measured from the middle of the 
-			# block
-			(agent_x - bullet_x + 0.5)**2 + (agent_y - bullet_y + 0.5)**2
-            for (bullet_x, bullet_y, _, _), shot_by_agent
-			in self._bullets_locations
-			if not shot_by_agent
-		]
-        if self.prev_distances:
-            reward -= (
-			    (2 - min(distances)) * distance_weight
-			    if len(distances) > 0 and min(distances) < 2 and min(distances) < min(self.prev_distances)
-			    else 0
-		    )
-        self.prev_distances = distances
+        # agent_x, agent_y = self._agent_location
+        # distances = [
+		# 	# Adding 0.5 to have the distance measured from the middle of the 
+		# 	# block
+		# 	(agent_x - bullet_x + 0.5)**2 + (agent_y - bullet_y + 0.5)**2
+        #     for (bullet_x, bullet_y, _, _), shot_by_agent
+		# 	in self._bullets_locations
+		# 	# if not shot_by_agent
+		# ]
+		
+        
+
+        # if self.prev_distances:
+        #     reward -= (
+		# 	    (2 - min(distances)) * distance_weight
+		# 	    if len(distances) > 0 and min(distances) < 2 and min(distances) < min(self.prev_distances)
+		# 	    else 0
+		#     )
+        # self.prev_distances = distances.copy()
         return reward
 
     def step(self, action):
@@ -417,9 +457,8 @@ class WiiTanks(gym.Env):
         # TODO: use clip to make sure we don't leave the map
         # TODO: add terminated based on whether the enemy is dead
         # TODO: calculated reward
-
+			
         move_action, shoot_action = action
-
         # Handle movement
         if move_action != 4:
             #print(f"inside move action if")
@@ -434,9 +473,21 @@ class WiiTanks(gym.Env):
             )
             main.tanks[MAIN_TANK].aim_target = new_aim
             main.tanks[MAIN_TANK].shoot(shot_by_agent=True)
-		
-        main.tanks[MAIN_TANK].tick(round_counter if intro_counter <= -1 else (-2 if intro_counter == INTROLENGTH-1 else -1))
 
+
+        for _ in range(TANK_MOVE_EVERY_X_FRAME):
+            run_step()
+
+        while True:
+            if (
+                main.tanks[MAIN_TANK].time % TANK_MOVE_EVERY_X_FRAME == 0
+                or main.tanks[MAIN_TANK].dead 
+                or self._get_num_alive_tanks() == 0
+            ):
+                break
+            run_step()
+
+		
         # TODO: write a function to get the location of tanks and call it here
         # and other places
         # < 0: top; > 0: bottom; right: 0; left: +- 0.5; top: -0.25; bottim: 0.25
@@ -447,17 +498,19 @@ class WiiTanks(gym.Env):
         self._walls_locations = self._get_walls_locations()
         #self._dwalls_locations = self._get_dwalls_locations()
 
-        run_step()
         observation = self._get_obs()
         # print(f"{observation=} \n{len(observation['map'][0])=}")
-        reward = self._get_reward()
+        reward = self._get_reward(move_action, shoot_action)
         # print(f"{self._get_num_alive_tanks()=}\n{self._num_targets_last_step=}")
         # print(f"{reward=}")
         self._num_targets_last_step = self._get_num_alive_tanks()
 
         terminated = main.tanks[MAIN_TANK].dead or self._num_targets_last_step == 0
         #info = self._get_info()
-        info = None
+        if self._num_targets_last_step == 0:
+            info = True
+        else:
+            info = False
 
         return observation, reward, terminated, False, info
 
@@ -497,7 +550,7 @@ def run_step():
 		if e.type == MOUSEBUTTONDOWN:
 			# New code
 			aim = get_aim()
-			aim_to_action
+			# aim_to_action
 			shoot_action = aim_to_action(aim)
 			#print(f"{aim=}, {shoot_action=}")
 			# TODO: Add shooting
@@ -573,7 +626,7 @@ def run_step():
 	new_aim = get_aim()
 	if new_aim != main.tanks[MAIN_TANK].aim_target:
 		main.tanks[MAIN_TANK].aim_target = new_aim
-	aim_to_action
+	# aim_to_action
 	
 	pressed = key.get_pressed()
 	
@@ -706,7 +759,7 @@ def run_step():
 	
 	if not main.TRAINING:
 		display.flip()
-	clock.tick(60)
+	# clock.tick(20)
 
 	return move_action, shoot_action
 

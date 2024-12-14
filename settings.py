@@ -1,13 +1,21 @@
 
 import sys
+import matplotlib.pyplot as plt
+
+SMALL_SIZE = 16
+MEDIUM_SIZE = 16
+
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rcParams['legend.fontsize'] = MEDIUM_SIZE  # Example: 14-point font
+plt.rcParams['figure.figsize'] = (8, 6)  # Example: 8 inches wide, 6 inches tall
 
 
-
-PLAYBACK_SPEED = 1 # How fast to play the game; this effectively multiplies onto all velocities
 PLAYBACK_SPEED = 1 # How fast to play the game; this effectively multiplies onto all velocities
 
 TRACKED_BULLETS = 10 # Number of bullets to track
-TRACKED_ENEMIES = 6  # Number of enemies to track
+TRACKED_ENEMIES = 2  # Number of enemies to track
 
 COLORKEY = (255, 0, 255)
 
@@ -79,10 +87,14 @@ DETBULLETRANGE = 0.2
 
 TANKSHOTCOOLDOWN = 10
 
-INTROLENGTH = 240
-WINLENGTH = 120
-LOSELENGTH = 120
-TRANSITIONLENGTH = 30
+# INTROLENGTH = 240
+# WINLENGTH = 120
+# LOSELENGTH = 120
+# TRANSITIONLENGTH = 0
+INTROLENGTH = 0
+WINLENGTH = 0
+LOSELENGTH = 0
+TRANSITIONLENGTH = 0
 
 FADEOUTLENGTH = 100
 
