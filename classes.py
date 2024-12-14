@@ -43,30 +43,30 @@ class Mine:
 					break
 
 	def explode(self):
-		main.effects.append(Effect("explosion2", self.x+0.5, self.y+0.5))
-		for x in range(floor(-MINEWALLRANGE), ceil(MINEWALLRANGE+1)):
-			for y in range(floor(-MINEWALLRANGE), ceil(MINEWALLRANGE+1)):
-				tx = max(min(int(self.x+x), FIELDWIDTH-1), 0)
-				ty = max(min(int(self.y+y-1), FIELDHEIGHT-1), 0)
-				if sqrt(x**2 + y**2) <= MINEWALLRANGE and main.map[tx][ty] in [None, "dwall1", "dwall2", "dwall3"]:
-					main.map[tx][ty] = None
-					main.effects.append(Effect("smoke1", self.x+x+0.5, self.y+y-0.5, False, sqrt(x**2 + y**2)*3))
+		# main.effects.append(Effect("explosion2", self.x+0.5, self.y+0.5))
+		# for x in range(floor(-MINEWALLRANGE), ceil(MINEWALLRANGE+1)):
+		# 	for y in range(floor(-MINEWALLRANGE), ceil(MINEWALLRANGE+1)):
+		# 		tx = max(min(int(self.x+x), FIELDWIDTH-1), 0)
+		# 		ty = max(min(int(self.y+y-1), FIELDHEIGHT-1), 0)
+		# 		if sqrt(x**2 + y**2) <= MINEWALLRANGE and main.map[tx][ty] in [None, "dwall1", "dwall2", "dwall3"]:
+		# 			main.map[tx][ty] = None
+		# 			main.effects.append(Effect("smoke1", self.x+x+0.5, self.y+y-0.5, False, sqrt(x**2 + y**2)*3))
 
-		main.mines.remove(self)
-		main.draw_to_bg(main.assets["scorch_mine"], self.x+0.5, self.y+0.5)
+		# main.mines.remove(self)
+		# main.draw_to_bg(main.assets["scorch_mine"], self.x+0.5, self.y+0.5)
 
-		for m in main.mines:
-			if sqrt((self.x - m.x)**2 + (self.y - m.y)**2) <= MINERANGE:
-				m.explode()
+		# for m in main.mines:
+		# 	if sqrt((self.x - m.x)**2 + (self.y - m.y)**2) <= MINERANGE:
+		# 		m.explode()
 
-		for t in main.tanks:
-			if sqrt((self.x - t.x)**2 + (self.y - (t.y+1))**2) <= MINERANGE:
-				t.destroy()
+		# for t in main.tanks:
+		# 	if sqrt((self.x - t.x)**2 + (self.y - (t.y+1))**2) <= MINERANGE:
+		# 		t.destroy()
 
-		self.callback()
-		main.redraw_shadow()
-		sound.play_sfx("explosion")
-
+		# self.callback()
+		# main.redraw_shadow()
+		# sound.play_sfx("explosion")
+		pass
 
 
 

@@ -22,8 +22,8 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 seed = 42
 init()
 
-main.TRAINING = False
-# main.TRAINING = True
+# main.TRAINING = False
+main.TRAINING = True
 
 if not main.TRAINING:
 	screen = display.set_mode((SCREENWIDTH, SCREENHEIGHT))
@@ -378,19 +378,19 @@ class WiiTanks(gym.Env):
         #		- Maybe simplify to distance to closes bullet
 
         reward = 0
-        death_weight = 1
+        death_weight = 2
         kill_weight = 1
-        aim_correct_weight = 0.1
+        aim_correct_weight = 1
         distance_weight = 0.1
-        survive_weight = 0.05
+        # survive_weight = 0.05
 
 		# Health Points
 		# 	This actually simplifies to just knowing if the tank is dead 
 		# 	which is main.tanks[0].dead
         if main.tanks[MAIN_TANK].dead:
             reward -= death_weight
-        else:
-            reward += survive_weight
+        # else:
+        #     reward += survive_weight
 
         shot_d_all = []
         shot_d_player = []
@@ -416,16 +416,13 @@ class WiiTanks(gym.Env):
             idx += 1
 
         if shoot_action != 0 and len(shot_d_player) > 0:
-            recent_bullet = shot_d_player[min_d_player_idx]
+            # recent_bullet = shot_d_player[min_d_player_idx]
             enemy = main.tanks[1]
 
-            new_aim = self._action_to_mouse_position(shoot_action)
-            print(new_aim * 2 * np.pi)
-
             if not enemy.dead:
-                angle = -np.arctan2(agent_y - enemy.y, agent_x - enemy.x)
-                print(recent_bullet[2], angle)
-                reward += np.cos(angle) * aim_correct_weight
+                aim = 2 * np.pi * self._action_to_mouse_position(shoot_action)
+                angle = np.arctan2(enemy.y - agent_y, enemy.x - agent_x)
+                reward += np.cos(aim - angle) * aim_correct_weight
 
 				
 
@@ -433,18 +430,18 @@ class WiiTanks(gym.Env):
 		# 	Similarly to Health points, enemies are either dead or alive so 
 		# 	this simplifies to if the number of enemies decreased
 		# 	I'll introduce a variable for the initial number of enemies
-        # num_targets_curr = self._get_num_alive_tanks()
-        # reward += (self._num_targets_last_step - num_targets_curr) * kill_weight
+        num_targets_curr = self._get_num_alive_tanks()
+        reward += (self._num_targets_last_step - num_targets_curr) * kill_weight
 		# Distance from closes bullet
-        # agent_x, agent_y = self._agent_location
-        # distances = [
-		# 	# Adding 0.5 to have the distance measured from the middle of the 
-		# 	# block
-		# 	(agent_x - bullet_x + 0.5)**2 + (agent_y - bullet_y + 0.5)**2
-        #     for (bullet_x, bullet_y, _, _), shot_by_agent
-		# 	in self._bullets_locations
-		# 	# if not shot_by_agent
-		# ]
+        agent_x, agent_y = self._agent_location
+        distances = [
+			# Adding 0.5 to have the distance measured from the middle of the 
+			# block
+			(agent_x - bullet_x + 0.5)**2 + (agent_y - bullet_y + 0.5)**2
+            for (bullet_x, bullet_y, _, _), shot_by_agent
+			in self._bullets_locations
+			# if not shot_by_agent
+		]
 		
         
 
@@ -674,14 +671,14 @@ def run_step():
 			if not main.TRAINING:
 				bg_layer.blit(main.assets["tracks"], ((t.x+0.5)*SCALEX - (TRACKTILEX//2), (t.y+1.5)*SCALEY - (TRACKTILEY//2)), Rect(t.get_body_sheet()[0]*TRACKTILEX, t.get_body_sheet()[1]*TRACKTILEY, TRACKTILEX, TRACKTILEY))
 	
-	for m in main.mines[:]:
-		m.tick()
-		if m.fuse < 0:
-			screen.blit(main.assets["mine_unarmed"], ((m.x) * SCALEX, (m.y) * SCALEY))
-		else:
-			if DEBUGMODE:
-				draw.ellipse(screen, (255, 0, 0) if m.detect else (0, 0, 255), ((m.x+0.5-MINERANGE) * SCALEX, (m.y+0.5-MINERANGE) * SCALEY, MINERANGE*2 * SCALEX, MINERANGE*2 * SCALEY), 10)
-			screen.blit(main.assets["mine" if int(log(FUSELENGTH-m.fuse+10) * 10) % 2 == 1 else "mine_lit"], ((m.x) * SCALEX, (m.y) * SCALEY))
+	# for m in main.mines[:]:
+	# 	m.tick()
+	# 	if m.fuse < 0:
+	# 		screen.blit(main.assets["mine_unarmed"], ((m.x) * SCALEX, (m.y) * SCALEY))
+	# 	else:
+	# 		if DEBUGMODE:
+	# 			draw.ellipse(screen, (255, 0, 0) if m.detect else (0, 0, 255), ((m.x+0.5-MINERANGE) * SCALEX, (m.y+0.5-MINERANGE) * SCALEY, MINERANGE*2 * SCALEX, MINERANGE*2 * SCALEY), 10)
+	# 		screen.blit(main.assets["mine" if int(log(FUSELENGTH-m.fuse+10) * 10) % 2 == 1 else "mine_lit"], ((m.x) * SCALEX, (m.y) * SCALEY))
 	
 	for b in main.bullets:
 		b.tick()
@@ -761,7 +758,7 @@ def run_step():
 	
 	if not main.TRAINING:
 		display.flip()
-	clock.tick(60)
+	# clock.tick(60)
 
 	return move_action, shoot_action
 
@@ -779,4 +776,4 @@ def run():
 	shoot_action = 0
 	while not stop:
 		move_action, shoot_action = run_step()
-		main.env.step((move_action, 8))
+		main.env.step((move_action, 2))

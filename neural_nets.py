@@ -16,14 +16,15 @@ def main():
     # cart_env = gym.make("CartPole-v1")
     # ppo(cart_env)
     tanks_env = WiiTanks()
-    policy_net, value_net, epoch_data = ppo(tanks_env, steps_per_trajectory=1000, trajectories_per_epoch=100, clip_ratio=0.2, walls=False, joint_model=False)
-    torch.save(value_net, 'value_net_3layer')
-    torch.save(policy_net, 'policy_net_3layer')
-    np.save('epoch_data_3layer.npy', np.array(epoch_data))
+    x = 5
+    policy_net, value_net, epoch_data = ppo(tanks_env, steps_per_trajectory=1000, trajectories_per_epoch=100, clip_ratio=0.2, walls=False, joint_model=False, x=x)
+    torch.save(value_net, f'value_net_3layer_{x}')
+    torch.save(policy_net, f'policy_net_3layer_{x}')
+    np.save(f'epoch_data_3layer_{x}.npy', np.array(epoch_data))
 
-    value_net = torch.load('value_net_3layer')
-    policy_net = torch.load('policy_net_3layer')
-    epoch_data = np.load('epoch_data_3layer.npy')
+    value_net = torch.load(f'value_net_3layer_{x}')
+    policy_net = torch.load(f'policy_net_3layer_{x}')
+    epoch_data = np.load(f'epoch_data_3layer_{x}.npy')
 
     epochs = np.arange(0, len(epoch_data)) #epoch zero indicates no training yet
 
@@ -33,7 +34,7 @@ def main():
     plt.grid(True)
     plt.tight_layout()
     plt.legend()
-    plt.savefig("angle_learning_3layer.png", dpi=300)
+    plt.savefig(f"rewards_{x}.png", dpi=300)
     plt.show()
 
     plt.plot(epochs, epoch_data[:, 2], 'b')
@@ -42,7 +43,7 @@ def main():
     plt.grid(True)
     plt.tight_layout()
     plt.legend()
-    plt.savefig("angle_learning_3layer.png", dpi=300)
+    plt.savefig(f"win_ratio_{x}.png", dpi=300)
     plt.show()
     
 
@@ -138,7 +139,7 @@ def compute_advantages(rewards, dones, values, gamma=0.99, lam=0.95):
 
 
 
-def rollout_trajectory_details(n, env, steps_per_trajectory, policy_net, value_net, gamma, lam, walls=True, joint_model=False):
+def rollout_trajectory_details(n, env, steps_per_trajectory, policy_net, value_net, gamma, lam, walls=True, joint_model=False, x=1):
     '''
     Gets summary statistics for `n` trajectories.
     '''
@@ -155,7 +156,7 @@ def rollout_trajectory_details(n, env, steps_per_trajectory, policy_net, value_n
         num_won = 0
 
         for _ in tqdm(range(n)):
-            obs = env.reset()[0]
+            obs = env.reset(level=x)[0]
             done = False
             traj_reward = 0
             count = 0
@@ -281,7 +282,7 @@ def rollout_trajectory_details(n, env, steps_per_trajectory, policy_net, value_n
 def ppo(
     env, policy_lr=1e-4, value_lr=1e-4, epochs=101, steps_per_trajectory=2048, 
     gamma=0.99, lam=0.95, clip_ratio=0.2, target_kl=0.01, train_policy_iters=100, 
-    train_value_iters=100, trajectories_per_epoch=10, walls=True, joint_model=False
+    train_value_iters=100, trajectories_per_epoch=10, walls=True, joint_model=False, x=1
 ):
     if not isinstance(env, WiiTanks):
         raise ValueError('Invalid environment. Only WiiTanks is supported.')
@@ -297,8 +298,11 @@ def ppo(
     else:
         act_dim = 18 #(8 directions to shoot + 1 option to not shoot) + (8 directions to move + 1 option to not move)
 
-    policy_net = PolicyNetwork(obs_dim, act_dim)
-    value_net = ValueNetwork(obs_dim)
+    # policy_net = PolicyNetwork(obs_dim, act_dim)
+    # value_net = ValueNetwork(obs_dim)
+    
+    value_net = torch.load(f'value_net_3layer_{x-2}')
+    policy_net = torch.load(f'policy_net_3layer_{x-2}')
 
     policy_optimizer = optim.Adam(policy_net.parameters(), lr=policy_lr)
     value_optimizer = optim.Adam(value_net.parameters(), lr=value_lr)
@@ -307,7 +311,7 @@ def ppo(
 
     for epoch in range(epochs):
         obs_tensor, act_move_tensor, act_shoot_tensor, logp_old_move_tensor, logp_old_shoot_tensor, advantages, returns, rewards, win_ratio = rollout_trajectory_details(
-            trajectories_per_epoch, env, steps_per_trajectory, policy_net, value_net, gamma, lam, walls, joint_model
+            trajectories_per_epoch, env, steps_per_trajectory, policy_net, value_net, gamma, lam, walls, joint_model, x
         )
 
         epoch_data.append([np.mean(rewards), np.std(rewards, ddof=1), win_ratio])
@@ -383,9 +387,9 @@ def ppo(
 
 
         if epoch % 10 == 1 or epoch == epochs - 1:
-            torch.save(value_net, 'value_net_3layer')
-            torch.save(policy_net, 'policy_net_3layer')
-            np.save('epoch_data_3layer', np.array(epoch_data))
+            torch.save(value_net, f'value_net_3layer_{x}')
+            torch.save(policy_net, f'policy_net_3layer_{x}')
+            np.save(f'epoch_data_3layer_{x}', np.array(epoch_data))
 
 
     env.close()
