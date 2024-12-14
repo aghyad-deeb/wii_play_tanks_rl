@@ -22,8 +22,8 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 seed = 42
 init()
 
-# main.TRAINING = False
-main.TRAINING = True
+main.TRAINING = False
+# main.TRAINING = True
 
 if not main.TRAINING:
 	screen = display.set_mode((SCREENWIDTH, SCREENHEIGHT))
@@ -341,7 +341,7 @@ class WiiTanks(gym.Env):
         From shoot action get the appropriate value for mouse position. 
         Returns positive value and needs to be adjusted.
         """
-        return max(0.125 * (shoot_action % 4), 0.5)
+        return shoot_action * 1/9
 
     def _action_to_movement(self, move_action):
         if move_action % 2 == 1:
@@ -418,8 +418,13 @@ class WiiTanks(gym.Env):
         if shoot_action != 0 and len(shot_d_player) > 0:
             recent_bullet = shot_d_player[min_d_player_idx]
             enemy = main.tanks[1]
+
+            new_aim = self._action_to_mouse_position(shoot_action)
+            print(new_aim * 2 * np.pi)
+
             if not enemy.dead:
-                angle = (recent_bullet[3] * 2 * np.pi) - np.arctan2(agent_y - enemy.y, agent_x - enemy.x)
+                angle = -np.arctan2(agent_y - enemy.y, agent_x - enemy.x)
+                print(recent_bullet[2], angle)
                 reward += np.cos(angle) * aim_correct_weight
 
 				
@@ -466,12 +471,9 @@ class WiiTanks(gym.Env):
 
         # Handle shooting
         if shoot_action != 0:
-            negate_aim = False if shoot_action < 4 else True
-            new_aim = (
-                (-1 if negate_aim else 1)
-                * self._action_to_mouse_position(shoot_action)
-            )
+            new_aim = self._action_to_mouse_position(shoot_action)
             main.tanks[MAIN_TANK].aim_target = new_aim
+            main.tanks[MAIN_TANK].aim = new_aim
             main.tanks[MAIN_TANK].shoot(shot_by_agent=True)
 
 
@@ -542,26 +544,26 @@ main.env = WiiTanks()
 def run_step():
 	global round_counter, intro_counter, win_counter, lose_counter, over_counter
 	global transition_counter
-	move_action = 4
+	# move_action = 4
 	shoot_action = 0
-	for e in event.get():
-		if e.type == QUIT:
-			stop = True
-		if e.type == MOUSEBUTTONDOWN:
-			# New code
-			aim = get_aim()
-			# aim_to_action
-			shoot_action = aim_to_action(aim)
-			#print(f"{aim=}, {shoot_action=}")
-			# TODO: Add shooting
-			# Old code
-			#main.tanks[0].shoot()
-		if e.type == KEYDOWN:
-			if e.key == K_SPACE:
-				main.tanks[MAIN_TANK].place_mine()
-		# if e.type in sound.end_event:
-		# 	pass
-			#sound.end_event[e.type]()
+	# for e in event.get():
+	# 	if e.type == QUIT:
+	# 		stop = True
+	# 	if e.type == MOUSEBUTTONDOWN:
+	# 		# New code
+	# 		aim = get_aim()
+	# 		# aim_to_action
+	# 		shoot_action = aim_to_action(aim)
+	# 		#print(f"{aim=}, {shoot_action=}")
+	# 		# TODO: Add shooting
+	# 		# Old code
+	# 		#main.tanks[0].shoot()
+	# 	if e.type == KEYDOWN:
+	# 		if e.key == K_SPACE:
+	# 			main.tanks[MAIN_TANK].place_mine()
+	# 	# if e.type in sound.end_event:
+	# 	# 	pass
+	# 		#sound.end_event[e.type]()
 	
 	if not main.TRAINING:
 		screen.blit(bg_layer, (0, 0))
@@ -759,7 +761,7 @@ def run_step():
 	
 	if not main.TRAINING:
 		display.flip()
-	# clock.tick(20)
+	clock.tick(60)
 
 	return move_action, shoot_action
 
@@ -777,4 +779,4 @@ def run():
 	shoot_action = 0
 	while not stop:
 		move_action, shoot_action = run_step()
-		main.env.step((move_action, shoot_action))
+		main.env.step((move_action, 8))
